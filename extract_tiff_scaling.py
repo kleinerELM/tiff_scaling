@@ -18,12 +18,12 @@ def programInfo():
     print("#########################################################")
     print()
 
-def getImageJScaling( filename, workingDirectory ):
+def getImageJScaling( filename, workingDirectory, verbose = False ):
     scaling = { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
-    with Image.open( workingDirectory + '/' + filename ) as img:
+    with Image.open( workingDirectory + os.sep + filename ) as img:
         if ( 282 in img.tag ) and ( 283 in img.tag ):
-            print( img.tag[282] ) #x
-            print( img.tag[283] ) #y
+            if verbose: print( img.tag[282] ) #x
+            if verbose: print( img.tag[283] ) #y
             x_tag = img.tag[282][0]
             y_tag = img.tag[283][0]
             scaling['x'] = int( x_tag[1] )/ int( x_tag[0] )
@@ -41,29 +41,29 @@ def getImageJScaling( filename, workingDirectory ):
             #print(IJSettingsArray)
             if ( 'ImageJ' in IJSettingsArray ):
                 if ( IJSettingsArray['ImageJ'] == 'FA.FIB.Toolbox' in IJSettingsArray ):
-                    print( '  Image edited using F.A. Finger Institute Toolbox' )
+                    if verbose: print( '  Image edited using F.A. Finger Institute Toolbox' )
                     scaling['editor'] = 'F.A. FIB Toolbox'
                 if ( IJSettingsArray['ImageJ'] == 'FEI-SEM' in IJSettingsArray ):
-                    print( '  Image edited using F.A. Finger Institute Toolbox using Metadata from a FEI / thermoScientific device' )
+                    if verbose: print( '  Image edited using F.A. Finger Institute Toolbox using Metadata from a FEI / thermoScientific device' )
                     scaling['editor'] = 'F.A. FIB Toolbox'
                 else:
-                    print( '  Image edited using ImageJ ' + IJSettingsArray['ImageJ'] )
+                    if verbose: print( '  Image edited using ImageJ ' + IJSettingsArray['ImageJ'] )
                     scaling['editor'] = 'ImageJ ' + IJSettingsArray['ImageJ']
             if ( 'unit' in IJSettingsArray ):
                 scaling['unit'] = IJSettingsArray['unit']
-                print( '  ' + str( round( scaling['x'], 4) ) + ' x ' + str( round( scaling['y'], 4) ) + ' ' + scaling['unit'] )
+                print( '  {} x {} {}/px'.format(round( scaling['x'], 4), round( scaling['y'], 4), scaling['unit']) )
             else :
-                print( '  unitless scaling: ' + str( round( scaling['x'], 4) ) + ' x ' + str( round( scaling['y'], 4) ) )
+                print( '  unitless scaling: {} x {}'.format(round( scaling['x'], 4), round( scaling['y'], 4)) )
     print()
     return scaling
 
-def getFEIScaling( filename, workingDirectory ):
+def getFEIScaling( filename, workingDirectory, verbose = False ):
     unitArray = [ 'm', 'mm', 'µm', 'nm' ]
     unitFactorArray = [ 1, 1000, 1000000, 1000000000 ]
     scaling = { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
-    with tifffile.TiffFile( workingDirectory + '/' + filename ) as tif:
+    with tifffile.TiffFile( workingDirectory + os.sep + filename ) as tif:
         if ( tif.fei_metadata != None ):
-            print( 'SEM image saved by an FEI / thermoScientific device' )
+            if verbose: print( 'SEM image saved by an FEI / thermoScientific device' )
             scaling['editor'] = 'FEI-SEM'
             scaling['x'] = float( tif.fei_metadata['Scan']['PixelWidth'] )
             scaling['y'] = float( tif.fei_metadata['Scan']['PixelHeight'] )
@@ -73,15 +73,24 @@ def getFEIScaling( filename, workingDirectory ):
                     scaling['unit'] = unitArray[factorPos]
                     scaling['x'] = scaling['x'] * factor
                     scaling['y'] = scaling['y'] * factor
-                    print( '  ' + str( scaling['x'] ) + ' ' + scaling['unit'] )
+                    print( '  {} {}/px'.format(scaling['x'], scaling['unit']) )
                 else:
                     factorPos += 1
 
-            with Image.open( workingDirectory + '/' + filename ) as img:
-                img.save( workingDirectory + '/Scaled_' + filename, tiffinfo = set_tiff_scaling.setImageJScaling( scaling ) )
+            with Image.open( workingDirectory + os.sep + filename ) as img:
+                filename_scaled = workingDirectory + os.sep + 'Scaled_' + filename if verbose else workingDirectory + os.sep + filename
+                img.save( filename_scaled, tiffinfo = set_tiff_scaling.setImageJScaling( scaling ) )
         else:
-            print('  no FEI / thermoScientific-Image')
+            if verbose: print('  no FEI / thermoScientific-Image')
 
+    return scaling
+
+def autodetectScaling( filename, workingDirectory, verbose = False ):
+    scaling = getImageJScaling( filename, workingDirectory )
+    if ( scaling['editor'] == None ):
+        scaling = getFEIScaling( filename, workingDirectory )
+    if ( scaling['editor'] == None ):
+        print( '{} was not saved using ImageJ or a SEM by FEI / thermoScientific'.format(filename) )
     return scaling
 
 ### actual program start
@@ -100,14 +109,12 @@ if __name__ == '__main__':
     settings = {}
 
     ### actual program start
-    if ( showDebuggingOutput ) : print( "I am living in '" + home_dir + "'" )
+    if ( showDebuggingOutput ) : print( "I am living in '{}'".format(home_dir) )
     settings["filepath"] = filedialog.askopenfilename(title='Please select the reference image',filetypes=[("Tiff images", "*.tif;*.tiff")])
     settings["workingDirectory"] = os.path.dirname( settings["filepath"] )
+    
+    scale = autodetectScaling( os.path.basename( settings["filepath"] ), settings["workingDirectory"] )
 
-    scaling = getImageJScaling( os.path.basename( settings["filepath"] ), settings["workingDirectory"] )
-    if ( scaling['editor'] == None ):
-        scaling = getFEIScaling( os.path.basename( settings["filepath"] ), settings["workingDirectory"] )
-    if ( scaling['editor'] == None ):
-        print( 'The file was not saved using ImageJ or a SEM by FEI / thermoScientific' )
+    print(scale)
 
     print( "Script DONE!" )
