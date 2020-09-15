@@ -19,14 +19,13 @@ def programInfo():
 
 def setImageJScaling( scaling ):
     print('  set ImageJ scaling...')
-
-    info = {}#img.tag
+    info = {}
     info[282] = round(1/scaling['x'], 6)
     info[283] = round(1/scaling['y'], 6)
     x = datetime.datetime.now()
     if ( not 'editor' in scaling or scaling['editor'] == '' ):
         scaling['editor'] = 'FA.FIB.Toolbox'#'F.A. FIB Toolbox'
-    info[270] = "ImageJ=" + scaling['editor'] + "\nunit=" + scaling['unit']#(( scaling['editor'] + '=' + x.strftime("%Y.%m.%d") + "\nunit=" + scaling['unit'] ), )
+    info[270] = "ImageJ=" + scaling['editor'] + "\nunit=" + scaling['unit']
 
     return info
 
@@ -55,7 +54,7 @@ if __name__ == '__main__':
     if ( output_folder_name == '' ):
         file_prefix = 'scaled_'
     else:
-        output_folder_name = output_folder_name + '/'
+        output_folder_name = output_folder_name + os.sep
         file_prefix = ''
 
 
@@ -73,8 +72,8 @@ if __name__ == '__main__':
         settings["workingDirectory"] = filedialog.askdirectory(title='Please select the image / working directory')
         
         if ( output_folder_name != '' ):
-            if not os.path.exists(settings["workingDirectory"] + '/' + output_folder_name):
-                os.makedirs(settings["workingDirectory"] + '/' + output_folder_name)
+            if not os.path.exists(settings["workingDirectory"] + os.sep + output_folder_name):
+                os.makedirs(settings["workingDirectory"] + os.sep + output_folder_name)
 
         fileCount = 0
         position = 0
@@ -86,17 +85,17 @@ if __name__ == '__main__':
                 filename = os.fsdecode(file)
                 position = position + 1
                 print( " Processing " + filename + " (" + str(position) + " / " + str(fileCount) + ") :" )
-                with Image.open( settings["workingDirectory"] + '/' + filename ) as img:
-                    img.save( settings["workingDirectory"] + '/' + output_folder_name + file_prefix + filename, tiffinfo = setImageJScaling( scaling ) ) 
+                with Image.open( settings["workingDirectory"] + os.sep + filename ) as img:
+                    img.save( settings["workingDirectory"] + os.sep + output_folder_name + file_prefix + filename, tiffinfo = setImageJScaling( scaling ) ) 
         print( "The ImageJ scaling in " + str( position ) + " files is set to " + str( scale ) + " " + unit + "." )
     else:
         settings["filepath"] = filedialog.askopenfilename(title='Please select the image',filetypes=[("Tiff images", "*.tif;*.tiff")])
         settings["workingDirectory"] = os.path.dirname( settings["filepath"] )
         if ( output_folder_name != '' ):
-            if not os.path.exists(settings["workingDirectory"] + '/' + output_folder_name):
-                os.makedirs(settings["workingDirectory"] + '/' + output_folder_name)
+            if not os.path.exists(settings["workingDirectory"] + os.sep + output_folder_name):
+                os.makedirs(settings["workingDirectory"] + os.sep + output_folder_name)
 
-        with Image.open( settings["workingDirectory"] + '/' + os.path.basename( settings["filepath"] ) ) as img:
-            img.save( settings["workingDirectory"] + '/' + output_folder_name + file_prefix + os.path.basename( settings["filepath"] ), tiffinfo = setImageJScaling( scaling ) ) 
+        with Image.open( settings["workingDirectory"] + os.sep + os.path.basename( settings["filepath"] ) ) as img:
+            img.save( settings["workingDirectory"] + os.sep + output_folder_name + file_prefix + os.path.basename( settings["filepath"] ), tiffinfo = setImageJScaling( scaling ) ) 
         print( "The ImageJ scaling in the file './" + output_folder_name + file_prefix + os.path.basename( settings["filepath"] ) + "' is set to " + str( scale ) + " " + unit + "." )
     print( "Script DONE!" )

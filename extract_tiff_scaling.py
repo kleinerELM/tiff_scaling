@@ -57,7 +57,15 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
     print()
     return scaling
 
-def getFEIScaling( filename, workingDirectory, verbose = False ):
+def isFEIImage( filename, workingDirectory, verbose = False ):
+    with tifffile.TiffFile( workingDirectory + os.sep + filename ) as tif:
+        if ( tif.fei_metadata != None ):
+            return True
+        else:
+            if verbose: print('  no FEI / thermoScientific-Image')
+    return False
+
+def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=False ):
     unitArray = [ 'm', 'mm', 'µm', 'nm' ]
     unitFactorArray = [ 1, 1000, 1000000, 1000000000 ]
     scaling = { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
@@ -77,18 +85,20 @@ def getFEIScaling( filename, workingDirectory, verbose = False ):
                 else:
                     factorPos += 1
 
-            with Image.open( workingDirectory + os.sep + filename ) as img:
-                filename_scaled = workingDirectory + os.sep + 'Scaled_' + filename if verbose else workingDirectory + os.sep + filename
-                img.save( filename_scaled, tiffinfo = set_tiff_scaling.setImageJScaling( scaling ) )
+            if save_scaled_image:
+                with Image.open( workingDirectory + os.sep + filename ) as img:
+                    filename_scaled = workingDirectory + os.sep + 'Scaled_' + filename if verbose else workingDirectory + os.sep + filename
+                    img.save( filename_scaled, tiffinfo = set_tiff_scaling.setImageJScaling( scaling ) )
         else:
             if verbose: print('  no FEI / thermoScientific-Image')
+            return False
 
     return scaling
 
 def autodetectScaling( filename, workingDirectory, verbose = False ):
     scaling = getImageJScaling( filename, workingDirectory )
     if ( scaling['editor'] == None ):
-        scaling = getFEIScaling( filename, workingDirectory )
+        scaling = getFEIScaling( filename, workingDirectory, save_scaled_image=True )
     if ( scaling['editor'] == None ):
         print( '{} was not saved using ImageJ or a SEM by FEI / thermoScientific'.format(filename) )
     return scaling
