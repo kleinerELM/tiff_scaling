@@ -18,8 +18,11 @@ def programInfo():
     print("#########################################################")
     print()
 
+def getEmptyScaling():
+    return { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
+
 def getImageJScaling( filename, workingDirectory, verbose = False ):
-    scaling = { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
+    scaling = getEmptyScaling()
     with Image.open( workingDirectory + os.sep + filename ) as img:
         if ( 282 in img.tag ) and ( 283 in img.tag ):
             if verbose: print( img.tag[282] ) #x
@@ -68,7 +71,7 @@ def isFEIImage( filename, workingDirectory, verbose = False ):
 def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=False ):
     unitArray = [ 'm', 'mm', 'µm', 'nm' ]
     unitFactorArray = [ 1, 1000, 1000000, 1000000000 ]
-    scaling = { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
+    scaling = getEmptyScaling()
     with tifffile.TiffFile( workingDirectory + os.sep + filename ) as tif:
         if ( tif.fei_metadata != None ):
             if verbose: print( 'SEM image saved by an FEI / thermoScientific device' )
