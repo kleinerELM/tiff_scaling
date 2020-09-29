@@ -57,7 +57,7 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
                 print( '  {} x {} {}/px'.format(round( scaling['x'], 4), round( scaling['y'], 4), scaling['unit']) )
             else :
                 print( '  unitless scaling: {} x {}'.format(round( scaling['x'], 4), round( scaling['y'], 4)) )
-    print()
+    if verbose: print()
     return scaling
 
 def isFEIImage( filename, workingDirectory, verbose = False ):
@@ -99,9 +99,9 @@ def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=
     return scaling
 
 def autodetectScaling( filename, workingDirectory, verbose = False ):
-    scaling = getImageJScaling( filename, workingDirectory )
+    scaling = getImageJScaling( filename, workingDirectory, verbose=verbose )
     if ( scaling['editor'] == None ):
-        scaling = getFEIScaling( filename, workingDirectory, save_scaled_image=True )
+        scaling = getFEIScaling( filename, workingDirectory, save_scaled_image=True, verbose=verbose )
     if ( scaling['editor'] == None ):
         print( '{} was not saved using ImageJ or a SEM by FEI / thermoScientific'.format(filename) )
     return scaling

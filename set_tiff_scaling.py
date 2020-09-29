@@ -17,8 +17,8 @@ def programInfo():
     print("#########################################################")
     print()
 
-def setImageJScaling( scaling ):
-    print('  set ImageJ scaling...')
+def setImageJScaling( scaling, verbose=False ):
+    if verbose: print('  set ImageJ scaling...')
     info = {}
     info[282] = round(1/scaling['x'], 6)
     info[283] = round(1/scaling['y'], 6)
@@ -43,12 +43,6 @@ if __name__ == '__main__':
     print( "Set the scale for a single file (f) or all files in a directory (d), [f]", end=": " )
     actionType = input()
     
-    #print( 'Replace the processed file? y/n [n]', end=": " )
-    #replaceFile = input()
-    #if ( replaceFile == 'y' ): 
-    #    file_prefix = ''
-    #else:
-    #    file_prefix = 'scaled_'
     print( 'Set the output folder name (if empty, the new file will be saved with a filename prefix)', end=": " )
     output_folder_name = input()
     if ( output_folder_name == '' ):
