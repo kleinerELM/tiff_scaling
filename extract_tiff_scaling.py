@@ -17,6 +17,69 @@ def programInfo():
     print("#                                                       #")
     print("#########################################################")
     print()
+    
+class unit():
+    unitArray = [ 'nm',  'µm',   'mm',   'cm',   'dm',    'm' ]
+    unitFactorArray = [ 1, 10**3, 10**6, 10**7, 10**8, 10**9 ]
+
+    def convert_to_nm( self, value, unit, squared=False):
+        pos = 0
+        result = value
+        for u in self.unitArray:
+            if u == unit:
+                result = value*(self.unitFactorArray[pos]**2) if squared else value*self.unitFactorArray[pos]
+                break
+            pos += 1
+        
+        return result
+
+    def make_length_readable( self, value, unit, decimal = 0 ):
+        pos = 0
+        f = 1
+        if unit in self.unitArray:
+            if unit != 'nm': value = convert_to_nm(value, unit)
+            for factor in self.unitFactorArray:
+                if value*(10**decimal) > factor:
+                    f = factor
+                    pos += 1
+                else:
+                    break
+        else:
+            print( 'The unit {} is not valid'.format(unit) )
+
+        return value/f, self.unitArray[pos]
+
+    def make_area_readable( self, value, unit, decimal = 0 ):
+        unit = unit.replace('²','')
+        pos = -1
+        f = 1
+        if unit in self.unitArray:
+            if unit != 'nm': value = convert_to_nm(value, unit, True)
+            for factor in self.unitFactorArray:
+                if value*(10**decimal) > factor**2:
+                    f = factor**2
+                    pos += 1
+                else:
+                    break
+        else:
+            print( 'The unit {} is not valid'.format(unit) )
+        if pos < 0: pos = 0
+        #print(value, unit, value/f, self.unitArray[unit_pos]+'²', unit_pos)
+        return value/f, self.unitArray[pos]+'²'
+
+    def get_area_in_unit( self, value, unit, to_unit ):
+        to_unit = to_unit.replace('²','')
+        unit = unit.replace('²','')
+        if to_unit in self.unitArray and unit in self.unitArray:
+            pos = 0
+            for u in self.unitArray:
+                if u == to_unit:
+                    break
+                pos += 1
+            value = value/(self.unitFactorArray[pos]**2)
+        else:
+            print( 'The units {} and/or {} are not valid'.format(unit, to_unit) )
+        return value
 
 def getEmptyScaling():
     return { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
