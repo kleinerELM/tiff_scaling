@@ -17,7 +17,7 @@ def programInfo():
     print("#                                                       #")
     print("#########################################################")
     print()
-    
+
 class unit():
     unitArray = [ 'nm',  'µm',   'mm',   'cm',   'dm',    'm' ]
     unitFactorArray = [ 1, 10**3, 10**6, 10**7, 10**8, 10**9 ]
@@ -30,7 +30,7 @@ class unit():
                 result = value*(self.unitFactorArray[pos]**2) if squared else value*self.unitFactorArray[pos]
                 break
             pos += 1
-        
+
         return result
 
     def make_length_readable( self, value, unit, decimal = 0 ):
@@ -94,11 +94,11 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
             y_tag = img.tag[283][0]
             scaling['x'] = int( x_tag[1] )/ int( x_tag[0] )
             scaling['y'] = int( y_tag[1] )/ int( y_tag[0] )
-        if 270 in img.tag:         
-            #print( img.tag[270] )   
+        if 270 in img.tag:
+            #print( img.tag[270] )
             # getimagej definitions
             IJSettingString = img.tag[270][0].split('\n')
-            #print( IJSettingString )   
+            #print( IJSettingString )
             IJSettingsArray = {}
             for val in IJSettingString:
                 if ( val != '' ):
@@ -117,8 +117,8 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
                     scaling['editor'] = 'ImageJ ' + IJSettingsArray['ImageJ']
             if ( 'unit' in IJSettingsArray ):
                 scaling['unit'] = IJSettingsArray['unit']
-                print( '  {} x {} {}/px'.format(round( scaling['x'], 4), round( scaling['y'], 4), scaling['unit']) )
-            else :
+                if verbose: print( '  {} x {} {}/px'.format(round( scaling['x'], 4), round( scaling['y'], 4), scaling['unit']) )
+            elif verbose:
                 print( '  unitless scaling: {} x {}'.format(round( scaling['x'], 4), round( scaling['y'], 4)) )
     if verbose: print()
     return scaling
@@ -173,8 +173,8 @@ if __name__ == '__main__':
     #remove root windows
     root = tk.Tk()
     root.withdraw()
-  
-    ### global settings    
+
+    ### global settings
     programInfo()
 
     #### directory definitions
@@ -187,7 +187,7 @@ if __name__ == '__main__':
     if ( showDebuggingOutput ) : print( "I am living in '{}'".format(home_dir) )
     settings["filepath"] = filedialog.askopenfilename(title='Please select the reference image',filetypes=[("Tiff images", "*.tif;*.tiff")])
     settings["workingDirectory"] = os.path.dirname( settings["filepath"] )
-    
+
     scale = autodetectScaling( os.path.basename( settings["filepath"] ), settings["workingDirectory"] )
 
     print(scale)
