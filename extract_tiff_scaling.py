@@ -157,7 +157,6 @@ def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=
                     img.save( filename_scaled, tiffinfo = set_tiff_scaling.setImageJScaling( scaling ) )
         else:
             if verbose: print('  no FEI / thermoScientific-Image')
-            return False
 
     return scaling
 

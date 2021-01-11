@@ -25,6 +25,7 @@ def setImageJScaling( scaling, verbose=False ):
     x = datetime.datetime.now()
     if ( not 'editor' in scaling or scaling['editor'] == '' ):
         scaling['editor'] = 'FA.FIB.Toolbox'#'F.A. FIB Toolbox'
+    if scaling['editor'] == None: scaling['editor'] = '-'
     info[270] = "ImageJ=" + scaling['editor'] + "\nunit=" + scaling['unit']
 
     return info
