@@ -2,6 +2,7 @@ import os, sys, getopt
 import tkinter as tk
 import tifffile
 from PIL import Image
+Image.MAX_IMAGE_PIXELS = 1000000000 # prevent decompressionbomb warning for typical images
 from PIL.TiffTags import TAGS
 from tkinter import filedialog
 import set_tiff_scaling
