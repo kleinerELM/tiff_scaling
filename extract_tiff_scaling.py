@@ -109,8 +109,6 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
             y_tag = img.tag[283][0]
             scaling['x'] = int( x_tag[1] )/ int( x_tag[0] )
             scaling['y'] = int( y_tag[1] )/ int( y_tag[0] )
-            print('scaling', x_tag, y_tag)
-            print(scaling)
         if 270 in img.tag:
             #print( img.tag[270] )
             # getimagej definitions
@@ -121,8 +119,6 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
                 if ( val != '' ):
                     setting = val.split('=')
                     IJSettingsArray[setting[0]] = setting[1]
-            print('IJSettingsArray')
-            print(IJSettingsArray)
             if ( 'ImageJ' in IJSettingsArray ):
                 if ( IJSettingsArray['ImageJ'] == 'FA.FIB.Toolbox' ):
                     if verbose: print( '  Image edited using F.A. Finger Institute Toolbox' )
@@ -135,7 +131,6 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
                     scaling['editor'] = 'ImageJ ' + IJSettingsArray['ImageJ']
             if ( 'unit' in IJSettingsArray ):
                 scaling['unit'] = IJSettingsArray['unit']
-                print(scaling['unit'])
                 # images < 1 nm/px were recognized falsely in previeous versions and no valid unit was assigned.
                 if not scaling['unit'] in UC.unitArray and scaling['x'] < 1 and scaling['x'] > 0 :
                     if verbose: print('scale given but unit {} seems wrong'.format(scaling['unit']))
