@@ -20,6 +20,7 @@ def programInfo():
 def setImageJScaling( scaling, verbose=False ):
     if verbose: print('  set ImageJ scaling...')
     info = {}
+    #if scaling['x'] < 1
     info[282] = round(1/scaling['x'], 6)
     info[283] = round(1/scaling['y'], 6)
     x = datetime.datetime.now()

@@ -20,8 +20,9 @@ def programInfo():
     print()
 
 class unit():
-    unitArray = [ 'nm',  'µm',   'mm',   'cm',   'dm',    'm' ]
-    unitFactorArray = [ 1, 10**3, 10**6, 10**7, 10**8, 10**9 ]
+    unitArray          = [  'nm',  'µm',  'mm',  'cm',  'dm',   'm' ]
+    unitFactorArray    = [     1, 10**3, 10**6, 10**7, 10**8, 10**9 ]
+    unitFactorArrayInv = [ 10**9, 10**6, 10**3, 10**2,    10,     1 ]
 
     def convert_to_nm( self, value, unit, squared=False):
         pos = 0
@@ -82,10 +83,23 @@ class unit():
             print( 'The units {} and/or {} are not valid'.format(unit, to_unit) )
         return value
 
+    def autodetect_unit(self, value):
+        unit = 'px'
+        factorPos = 0
+        for i, factor in enumerate(self.unitFactorArrayInv):
+            if ( value * factor > 1 and unit == 'px'):
+                print(value * factor)
+                if i > 0: factorPos = i - 1
+                break
+        
+        print( '  {:.4f} {}/px'.format(value*self.unitFactorArrayInv[factorPos], self.unitArray[factorPos]) )
+        return self.unitFactorArrayInv[factorPos], self.unitArray[factorPos]
+
 def getEmptyScaling():
     return { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
 
 def getImageJScaling( filename, workingDirectory, verbose = False ):
+    UC = unit() 
     scaling = getEmptyScaling()
     with Image.open( workingDirectory + os.sep + filename ) as img:
         if ( 282 in img.tag ) and ( 283 in img.tag ):
@@ -95,6 +109,8 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
             y_tag = img.tag[283][0]
             scaling['x'] = int( x_tag[1] )/ int( x_tag[0] )
             scaling['y'] = int( y_tag[1] )/ int( y_tag[0] )
+            print('scaling', x_tag, y_tag)
+            print(scaling)
         if 270 in img.tag:
             #print( img.tag[270] )
             # getimagej definitions
@@ -105,12 +121,13 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
                 if ( val != '' ):
                     setting = val.split('=')
                     IJSettingsArray[setting[0]] = setting[1]
-            #print(IJSettingsArray)
+            print('IJSettingsArray')
+            print(IJSettingsArray)
             if ( 'ImageJ' in IJSettingsArray ):
-                if ( IJSettingsArray['ImageJ'] == 'FA.FIB.Toolbox' in IJSettingsArray ):
+                if ( IJSettingsArray['ImageJ'] == 'FA.FIB.Toolbox' ):
                     if verbose: print( '  Image edited using F.A. Finger Institute Toolbox' )
                     scaling['editor'] = 'F.A. FIB Toolbox'
-                if ( IJSettingsArray['ImageJ'] == 'FEI-SEM' in IJSettingsArray ):
+                if ( IJSettingsArray['ImageJ'] == 'FEI-SEM' ):
                     if verbose: print( '  Image edited using F.A. Finger Institute Toolbox using Metadata from a FEI / thermoScientific device' )
                     scaling['editor'] = 'F.A. FIB Toolbox'
                 else:
@@ -118,6 +135,13 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
                     scaling['editor'] = 'ImageJ ' + IJSettingsArray['ImageJ']
             if ( 'unit' in IJSettingsArray ):
                 scaling['unit'] = IJSettingsArray['unit']
+                print(scaling['unit'])
+                # images < 1 nm/px were recognized falsely in previeous versions and no valid unit was assigned.
+                if not scaling['unit'] in UC.unitArray and scaling['x'] < 1 and scaling['x'] > 0 :
+                    if verbose: print('scale given but unit {} seems wrong'.format(scaling['unit']))
+                    factor, scaling['unit'] = UC.autodetect_unit(scaling['x'])
+                    scaling['x'] *= factor
+                    scaling['y'] *= factor
                 if verbose: print( '  {} x {} {}/px'.format(round( scaling['x'], 4), round( scaling['y'], 4), scaling['unit']) )
             elif verbose:
                 print( '  unitless scaling: {} x {}'.format(round( scaling['x'], 4), round( scaling['y'], 4)) )
@@ -133,24 +157,22 @@ def isFEIImage( filename, workingDirectory, verbose = False ):
     return False
 
 def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=False ):
-    unitArray = [ 'm', 'mm', 'µm', 'nm' ]
-    unitFactorArray = [ 1, 1000, 1000000, 1000000000 ]
     scaling = getEmptyScaling()
+    UC = unit() 
     with tifffile.TiffFile( workingDirectory + os.sep + filename ) as tif:
+        print(tif.pages[0].tags)
         if ( tif.fei_metadata != None ):
             if verbose: print( 'SEM image saved by an FEI / thermoScientific device' )
             scaling['editor'] = 'FEI-SEM'
             scaling['x'] = float( tif.fei_metadata['Scan']['PixelWidth'] )
             scaling['y'] = float( tif.fei_metadata['Scan']['PixelHeight'] )
-            factorPos = 0
-            for factor in unitFactorArray:
-                if ( scaling['x'] * factor >=1 and scaling['unit'] == 'px'):
-                    scaling['unit'] = unitArray[factorPos]
-                    scaling['x'] = scaling['x'] * factor
-                    scaling['y'] = scaling['y'] * factor
-                    print( '  {} {}/px'.format(scaling['x'], scaling['unit']) )
-                else:
-                    factorPos += 1
+            
+            print('autodetect unit', scaling)
+            factor, scaling['unit'] = UC.autodetect_unit(scaling['x'])
+            scaling['x'] *= factor
+            scaling['y'] *= factor
+            print(scaling)
+            print(set_tiff_scaling.setImageJScaling( scaling, True ))
 
             if save_scaled_image:
                 with Image.open( workingDirectory + os.sep + filename ) as img:
@@ -163,9 +185,9 @@ def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=
 
 def autodetectScaling( filename, workingDirectory, verbose = False ):
     scaling = getImageJScaling( filename, workingDirectory, verbose=verbose )
-    if ( scaling['editor'] == None ):
-        scaling = getFEIScaling( filename, workingDirectory, save_scaled_image=True, verbose=verbose )
-    if ( scaling['editor'] == None ):
+    if scaling['editor'] == None:
+        scaling = getFEIScaling( filename, workingDirectory, save_scaled_image=False, verbose=verbose )
+    if scaling['editor'] == None:
         print( '{} was not saved using ImageJ or a SEM by FEI / thermoScientific'.format(filename) )
     return scaling
 
