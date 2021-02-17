@@ -24,7 +24,31 @@ class unit():
     unitFactorArray    = [     1, 10**3, 10**6, 10**7, 10**8, 10**9 ]
     unitFactorArrayInv = [ 10**9, 10**6, 10**3, 10**2,    10,     1 ]
 
+    def convert_from_to_unit( self, value, from_unit, to_unit, squared=False):
+        pos = 0
+        result = value
+        from_pos = -1
+        to_pos = -1
+
+        for i, u in enumerate(self.unitArray):
+            if u == from_unit:
+                from_pos = i
+            if u == from_unit:
+                to_pos = i
+
+        if from_pos >= 0 and to_pos >= 0:
+            if from_pos < to_pos:
+                f = self.unitFactorArray[to_pos] / self.unitFactorArray[from_pos]
+                result = value*(f**2) if squared else value*f
+            elif from_pos > to_pos:
+                f = self.unitFactorArray[from_pos] / self.unitFactorArray[to_pos]
+                result = value*(f**2) if squared else value*f
+
+        return result
+
     def convert_to_nm( self, value, unit, squared=False):
+        self.convert_from_to_unit( value, unit, 'nm' )
+        """
         pos = 0
         result = value
         for u in self.unitArray:
@@ -34,6 +58,7 @@ class unit():
             pos += 1
 
         return result
+        """
 
     def make_length_readable( self, value, unit, decimal = 0 ):
         pos = 0
@@ -50,6 +75,28 @@ class unit():
             print( 'The unit {} is not valid'.format(unit) )
 
         return value/f, self.unitArray[pos]
+
+    def setImageJScaling( self, scaling, verbose=False ):
+        if verbose: print('  set ImageJ scaling...')
+        info = {}
+        #if scaling['x'] < 1
+        info[282] = round(1/scaling['x'], 6)
+        info[283] = round(1/scaling['y'], 6)
+        if ( not 'editor' in scaling or scaling['editor'] == '' ):
+            scaling['editor'] = 'FA.FIB.Toolbox'#'F.A. FIB Toolbox'
+        if scaling['editor'] == None: scaling['editor'] = '-'
+        info[270] = "ImageJ=" + scaling['editor'] + "\nunit=" + scaling['unit']
+
+        return info
+
+    def setCVScaling( self, scaling, verbose=False ):
+        IMWRITE_TIFF_RESUNIT = 256 # For TIFF, use to specify which DPI resolution unit to set; see libtiff documentation for valid values
+        IMWRITE_TIFF_XDPI    = 257 # For TIFF, use to specify the X direction DPI
+        IMWRITE_TIFF_YDPI    = 258 # For TIFF, use to specify the Y direction DPI
+        tiff_info = [int(IMWRITE_TIFF_RESUNIT), 3,
+                    int(IMWRITE_TIFF_XDPI   ), int(1/scaling['x']*self.unitFactorArray[3]),
+                    int(IMWRITE_TIFF_YDPI   ), int(1/scaling['y']*self.unitFactorArray[3])]
+        return tiff_info
 
     def make_area_readable( self, value, unit, decimal = 0 ):
         unit = unit.replace('²','')
