@@ -158,35 +158,47 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
             scaling['y'] = int( y_tag[1] )/ int( y_tag[0] )
         if 270 in img.tag:
             #print( img.tag[270] )
-            # getimagej definitions
-            IJSettingString = img.tag[270][0].split('\n')
-            #print( IJSettingString )
-            IJSettingsArray = {}
-            for val in IJSettingString:
-                if ( val != '' ):
-                    setting = val.split('=')
-                    IJSettingsArray[setting[0]] = setting[1]
-            if ( 'ImageJ' in IJSettingsArray ):
-                if ( IJSettingsArray['ImageJ'] == 'FA.FIB.Toolbox' ):
-                    if verbose: print( '  Image edited using F.A. Finger Institute Toolbox' )
-                    scaling['editor'] = 'F.A. FIB Toolbox'
-                if ( IJSettingsArray['ImageJ'] == 'FEI-SEM' ):
-                    if verbose: print( '  Image edited using F.A. Finger Institute Toolbox using Metadata from a FEI / thermoScientific device' )
-                    scaling['editor'] = 'F.A. FIB Toolbox'
-                else:
-                    if verbose: print( '  Image edited using ImageJ ' + IJSettingsArray['ImageJ'] )
-                    scaling['editor'] = 'ImageJ ' + IJSettingsArray['ImageJ']
-            if ( 'unit' in IJSettingsArray ):
-                scaling['unit'] = IJSettingsArray['unit']
-                # images < 1 nm/px were recognized falsely in previeous versions and no valid unit was assigned.
-                if not scaling['unit'] in UC.unitArray and scaling['x'] < 1 and scaling['x'] > 0 :
-                    if verbose: print('scale given but unit {} seems wrong'.format(scaling['unit']))
-                    factor, scaling['unit'] = UC.autodetect_unit(scaling['x'])
-                    scaling['x'] *= factor
-                    scaling['y'] *= factor
-                if verbose: print( '  {} x {} {}/px'.format(round( scaling['x'], 4), round( scaling['y'], 4), scaling['unit']) )
-            elif verbose:
-                print( '  unitless scaling: {} x {}'.format(round( scaling['x'], 4), round( scaling['y'], 4)) )
+
+            if img.tag[270][0].find('PixelWidth_um') > -1:
+                pixel_size = get_eds_image_scaling( img )
+                scaling['x'] = pixel_size
+                scaling['y'] = pixel_size
+                scaling['unit'] = 'nm'
+                scaling['editor'] = 'EDS image of the FIB process'
+                if verbose:
+                    print( '  Image is an ' + scaling['editor'] )
+                    print( '  {} x {} {}/px'.format(round( scaling['x'], 4), round( scaling['y'], 4), scaling['unit']) )
+            else:
+                # getimagej definitions
+                IJSettingString = img.tag[270][0].split('\n')
+                #print( IJSettingString )
+                IJSettingsArray = {}
+                for val in IJSettingString:
+                    if ( val != '' ):
+                        setting = val.split('=')
+                        if (len(setting) > 1 ):
+                            IJSettingsArray[setting[0]] = setting[1]
+                if ( 'ImageJ' in IJSettingsArray ):
+                    if ( IJSettingsArray['ImageJ'] == 'FA.FIB.Toolbox' ):
+                        if verbose: print( '  Image edited using F.A. Finger Institute Toolbox' )
+                        scaling['editor'] = 'F.A. FIB Toolbox'
+                    if ( IJSettingsArray['ImageJ'] == 'FEI-SEM' ):
+                        if verbose: print( '  Image edited using F.A. Finger Institute Toolbox using Metadata from a FEI / thermoScientific device' )
+                        scaling['editor'] = 'F.A. FIB Toolbox'
+                    else:
+                        if verbose: print( '  Image edited using ImageJ ' + IJSettingsArray['ImageJ'] )
+                        scaling['editor'] = 'ImageJ ' + IJSettingsArray['ImageJ']
+                if ( 'unit' in IJSettingsArray ):
+                    scaling['unit'] = IJSettingsArray['unit']
+                    # images < 1 nm/px were recognized falsely in previeous versions and no valid unit was assigned.
+                    if not scaling['unit'] in UC.unitArray and scaling['x'] < 1 and scaling['x'] > 0 :
+                        if verbose: print('scale given but unit {} seems wrong'.format(scaling['unit']))
+                        factor, scaling['unit'] = UC.autodetect_unit(scaling['x'])
+                        scaling['x'] *= factor
+                        scaling['y'] *= factor
+                    if verbose: print( '  {} x {} {}/px'.format(round( scaling['x'], 4), round( scaling['y'], 4), scaling['unit']) )
+                elif verbose:
+                    print( '  unitless scaling: {} x {}'.format(round( scaling['x'], 4), round( scaling['y'], 4)) )
     if verbose: print()
     return scaling
 
@@ -224,6 +236,11 @@ def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=
             if verbose: print('  no FEI / thermoScientific-Image')
 
     return scaling
+
+def get_eds_image_scaling( img ):
+    pixel_size_data = img.tag[270][0].split('PixelWidth_um>')
+    pixel_size_data = pixel_size_data[1].split('<')
+    return float( pixel_size_data[0].replace(',','.') )*1000 # nm
 
 def autodetectScaling( filename, workingDirectory, verbose = False ):
     scaling = getImageJScaling( filename, workingDirectory, verbose=verbose )
