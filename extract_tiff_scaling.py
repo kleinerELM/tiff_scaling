@@ -214,12 +214,21 @@ def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=
     scaling = getEmptyScaling()
     UC = unit()
     with tifffile.TiffFile( workingDirectory + os.sep + filename ) as tif:
-        #print(tif.pages[0].tags)
-        if ( tif.fei_metadata != None ):
+        # extract infos from metadata
+        if ( tif.fei_metadata != None and tif.fei_metadata != {}):
             if verbose: print( 'SEM image saved by an FEI / thermoScientific device' )
+            data = tif.fei_metadata
+        elif (34682 in tif.pages[0].tags._dict): # this only happened for some images created in the FIB process....
+            if verbose: print( 'SEM image saved by an FEI / thermoScientific device - probaply created by FIB process' )
+            data = tif.pages[0].tags.get(34682).value
+        else:
+            if verbose: print('  no FEI / thermoScientific-Image')
+            data = None
+
+        if data != None:
             scaling['editor'] = 'FEI-SEM'
-            scaling['x'] = float( tif.fei_metadata['Scan']['PixelWidth'] )
-            scaling['y'] = float( tif.fei_metadata['Scan']['PixelHeight'] )
+            scaling['x'] = float( data['Scan']['PixelWidth'] )
+            scaling['y'] = float( data['Scan']['PixelHeight'] )
 
             #print('autodetect unit', scaling)
             factor, scaling['unit'] = UC.autodetect_unit(scaling['x'])
@@ -232,8 +241,6 @@ def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=
                 with Image.open( workingDirectory + os.sep + filename ) as img:
                     filename_scaled = workingDirectory + os.sep + 'Scaled_' + filename if verbose else workingDirectory + os.sep + filename
                     img.save( filename_scaled, tiffinfo = set_tiff_scaling.setImageJScaling( scaling ) )
-        else:
-            if verbose: print('  no FEI / thermoScientific-Image')
 
     return scaling
 
