@@ -4,13 +4,12 @@ import tifffile
 from PIL import Image
 from PIL.TiffTags import TAGS
 from tkinter import filedialog
-import datetime
 
 def programInfo():
     print("#########################################################")
     print("# A Script to set the scaling used in ImageJ in TIFFs   #")
     print("#                                                       #")
-    print("# © 2020 Florian Kleiner                                #")
+    print("# © 2021 Florian Kleiner                                #")
     print("#   Bauhaus-Universität Weimar                          #")
     print("#   F. A. Finger-Institut für Baustoffkunde             #")
     print("#                                                       #")
@@ -26,7 +25,6 @@ def setImageJScaling( scaling, verbose=False ):
     #if scaling['x'] < 1
     info[282] = round(1/scaling['x'], 6)
     info[283] = round(1/scaling['y'], 6)
-    x = datetime.datetime.now()
     if ( not 'editor' in scaling or scaling['editor'] == '' ):
         scaling['editor'] = 'FA.FIB.Toolbox'#'F.A. FIB Toolbox'
     if scaling['editor'] == None: scaling['editor'] = '-'
@@ -64,7 +62,6 @@ if __name__ == '__main__':
         output_folder_name = output_folder_name + os.sep
         file_prefix = ''
 
-
     print( "Set the unit of scaling [nm]", end=": " )
     unit = input()
     if unit == '': unit = 'nm'
@@ -76,7 +73,7 @@ if __name__ == '__main__':
 
     if ( actionType == 'd' ):
         print( "Please select a working directory", end="\r" )
-        settings["workingDirectory"] = filedialog.askdirectory(title='Please select the image / working directory')
+        settings["workingDirectory"] = filedialog.askdirectory(title='Please select the directory containing the images')
 
         if ( output_folder_name != '' ):
             if not os.path.exists(settings["workingDirectory"] + os.sep + output_folder_name):
