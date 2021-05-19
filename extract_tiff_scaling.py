@@ -316,7 +316,7 @@ def save_scalebar_image( pil_img, path, scaling ):
 
     draw.text((round(w-((scaleWidth/scaling['x'])/2 + pad_right)-tw/2), h-pad_bottom+scaleHeight*2), scaling_text, font=fnt, fill=255)
 
-    pil_img.save(path, "tiff", compression='tiff_lzw', tiffinfo = tiffinfo)
+    pil_img.save(path, "tiff", compression='tiff_deflate', tiffinfo = tiffinfo)
 
 
 ### actual program start
@@ -369,9 +369,15 @@ if __name__ == '__main__':
         print( "Please select a working directory", end="\r" )
         settings["workingDirectory"] = filedialog.askdirectory(title='Please select the directory containing the images')
 
+        # create missing output directories
         if ( output_folder_name != '' ):
             if not os.path.exists(settings["workingDirectory"] + os.sep + output_folder_name):
                 os.makedirs(settings["workingDirectory"] + os.sep + output_folder_name)
+            if save_with_new_scalebar:
+                if not os.path.exists(settings["workingDirectory"] + os.sep + 'cut_' + output_folder_name):
+                    os.makedirs(settings["workingDirectory"] + os.sep + 'cut_' + output_folder_name)
+                if not os.path.exists(settings["workingDirectory"] + os.sep + 'nsb_' + output_folder_name):
+                    os.makedirs(settings["workingDirectory"] + os.sep + 'nsb_' + output_folder_name)
 
         fileCount = 0
         position = 0
@@ -387,26 +393,34 @@ if __name__ == '__main__':
                 print( " Processing " + filename + " (" + str(position) + " / " + str(fileCount) + ") :" )
                 scale = autodetectScaling( file, settings["workingDirectory"], False )
                 if scale['editor'] != None:
+
+                    # save image with the new scaling
                     with Image.open( file_path ) as img:
                         width, height = img.size
+                        tiffinfo = UC.setImageJScaling( scale )
                         data = list(img.getdata())
                         metafree_img = Image.new(img.mode, img.size)
                         metafree_img.putdata(data)
-                        metafree_img.save( settings["workingDirectory"] + os.sep + output_folder_name + file_prefix + filename, compression='tiff_lzw', tiffinfo = UC.setImageJScaling( scale ) )#, resolution=UC.convert_from_to_unit(scale['x'],scale['unit'], 'cm'), resolution_unit=3 )#
+                        metafree_img.save( settings["workingDirectory"] + os.sep + output_folder_name + file_prefix + filename, compression='tiff_deflate', tiffinfo = tiffinfo )#, resolution=UC.convert_from_to_unit(scale['x'],scale['unit'], 'cm'), resolution_unit=3 )#
+
+                        # check if scalebar is detected without an error
+                        set_scale = autodetectScaling( file_prefix + file, settings["workingDirectory"] + os.sep + output_folder_name )
+
+                        if (    set_scale['x']*1.01 > UC.convert_from_to_unit( scale['x'], scale['unit'], set_scale['unit'])
+                            and set_scale['x']      < UC.convert_from_to_unit( scale['x'], scale['unit'], set_scale['unit'])*1.01):
+                            print( "    {:.2f} {}".format(scale['x'], scale['unit']) )
+                        else:
+                            print( "    saving the saved image with the new scaling has major deviations. Detected: {:.2f} {}, Saved: {:.2f} {})".format(scale['x'], standard_unit, set_scale['x'], set_scale['unit']) )
+
+                        # cut old scalebar and add simplified scalebar for publications
                         if save_with_new_scalebar:
                             contentHeight = getContentHeightFromMetaData( file_path, verbose=False )
                             if contentHeight > 0:
                                 metafree_img = metafree_img.crop((0, 0, width, contentHeight))
-                            save_scalebar_image(metafree_img, path=settings["workingDirectory"] + os.sep + output_folder_name + 'nsb_' + filename ,scaling=scale)
+                                metafree_img.save( settings["workingDirectory"] + os.sep + 'cut_' + output_folder_name + file_prefix + filename, compression='tiff_deflate', tiffinfo = tiffinfo )#, resolution=UC.convert_from_to_unit(scale['x'],scale['unit'], 'cm'), resolution_unit=3 )#
+
+                            save_scalebar_image(metafree_img, path=settings["workingDirectory"] + os.sep + 'nsb_' + output_folder_name + filename ,scaling=scale)
                             successfull_files += 1
-
-                    set_scale = autodetectScaling( file_prefix + file, settings["workingDirectory"] + os.sep + output_folder_name )
-
-                    if (    set_scale['x']*1.01 > UC.convert_from_to_unit( scale['x'], scale['unit'], set_scale['unit'])
-                        and set_scale['x']      < UC.convert_from_to_unit( scale['x'], scale['unit'], set_scale['unit'])*1.01):
-                        print( "    {:.2f} {}".format(scale['x'], scale['unit']) )
-                    else:
-                        print( "    scale is {:.2f} {}, but saving failed! (!= {:.2f} {})".format(scale['x'], standard_unit, set_scale['x'], set_scale['unit']) )
 
                 else:
                     print( "    no scaling information found in the image" )
