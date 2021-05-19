@@ -57,26 +57,21 @@ class unit:
         return result
         """
 
-    def make_length_readable( self, value, unit, decimal = 0 ):
+    def make_length_readable( self, value, unit, decimal = -1 ):
         pos = -1
         f = 1
-        #print('make_length_readable', value, unit)
         if unit in self.unitArray:
             if unit != 'nm': value = self.convert_to_nm(value, unit)
             for factor in self.unitFactorArray:
                 if value*10 > factor:
                     f = factor
                     pos += 1
-                    #print(pos, value*10, factor)
                 else:
-                    break#print('-', pos, value*10, factor)
-                #else:
-                #    break
+                    break
         else:
             print( 'The unit {} is not valid'.format(unit) )
-        #*(10**decimal)
-        # print('make_length_readable',f, value/f, self.unitArray[pos])
-        return value/f, self.unitArray[pos]
+        return_value = value/f if decimal < 0 else round(value/f, decimal)
+        return return_value, self.unitArray[pos]
 
     def setImageJScaling( self, scaling, verbose=False ):
         if verbose: print('  set ImageJ scaling...', scaling)
@@ -135,15 +130,11 @@ class unit:
         factorPos = 0
         for i, factor in enumerate(self.unitFactorArrayInv):
             if ( value * factor > 1 and unit == 'px'):
-                #print(value * factor)
                 if i > 0: factorPos = i - 1
                 break
 
-        #print( '  {:.4f} {}/px'.format(value*self.unitFactorArrayInv[factorPos], self.unitArray[factorPos]) )
         return self.unitFactorArrayInv[factorPos], self.unitArray[factorPos]
 
-    #def __init__(self):
-    #    self.initiated = True
 
 def getEmptyScaling():
     return { 'x' : 1, 'y' : 1, 'unit' : 'px', 'editor':None}
@@ -287,14 +278,13 @@ def save_scalebar_image( pil_img, path, scaling ):
     tiffinfo = UC.setImageJScaling( scaling )
 
     scale_width_dict = {800:500.0, 400:250.0, 200:100.0, 80:50.0, 40:25.0, 20:10.0, 8:5.0, 4:2.5}
-    readable_val, readable_unit = UC.make_length_readable( w * scaling['x']/10, scaling['unit'])
+    _, readable_unit = UC.make_length_readable( w * scaling['x']/10, scaling['unit'])
     if readable_unit != scaling['unit']:
         scaling['x'] = UC.convert_from_to_unit( scaling['x'], scaling['unit'], readable_unit )
         scaling['y'] = UC.convert_from_to_unit( scaling['y'], scaling['unit'], readable_unit )
         scaling['unit'] = readable_unit
 
     scaledImageWidth = w * scaling['x']
-    scaledImageHeight = h * scaling['y']
 
     scaleWidth = 1
     for i in scale_width_dict:
@@ -311,22 +301,19 @@ def save_scalebar_image( pil_img, path, scaling ):
     pad_bottom = round(0.01 * w)+2*scaleHeight+fontSize
 
     draw = ImageDraw.Draw(pil_img)
+
     line_from = (round(w-(scaleWidth/scaling['x'] + pad_right)), h-pad_bottom)
     line_to   = (w-pad_right, h-pad_bottom)
-
-    #print(w, h, scaledImageWidth, scaledImageHeight)
-    # print('scalebarWidth:',scaleWidth, readable_unit, ', ImageWidth:', scaledImageWidth, readable_unit, [line_from, line_to])
     draw.line([line_from, line_to], fill=255, width=scaleHeight)
+
     font_path = home_dir + os.sep + "LinotypeSyntaxCom-Regular.ttf"
     if not os.path.isfile(font_path):
         font_path = home_dir + os.sep + "RobotoMono-VariableFont_wght.ttf"
     fnt = ImageFont.truetype(font_path, fontSize)
-    print((round(w-(scaleWidth/scaling['x']/2 + pad_right)), pad_bottom+10))
-    print("{:.1f} {}".format(scaleWidth, readable_unit))
-    # draw text, half opacity
+
     scaling_text = "{:.1f} {}".format(scaleWidth, readable_unit)
     tw, _ = draw.textsize(scaling_text, font=fnt)
-    print(scaleWidth/2, tw/2)
+
     draw.text((round(w-((scaleWidth/scaling['x'])/2 + pad_right)-tw/2), h-pad_bottom+scaleHeight*2), scaling_text, font=fnt, fill=255)
 
     pil_img.save(path, "tiff", compression='tiff_lzw', tiffinfo = tiffinfo)
