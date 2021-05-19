@@ -1,11 +1,13 @@
 import os, sys, getopt
 import tkinter as tk
 import tifffile
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 Image.MAX_IMAGE_PIXELS = 1000000000 # prevent decompressionbomb warning for typical images
 from PIL.TiffTags import TAGS
 from tkinter import filedialog
-import set_tiff_scaling
+import mmap
+
+home_dir = os.path.dirname(os.path.realpath(__file__))
 
 def programInfo():
     print("#########################################################")
@@ -38,7 +40,7 @@ class unit:
         if from_pos >= 0 and to_pos >= 0:
             f = self.unitFactorArray[from_pos] / self.unitFactorArray[to_pos]
             result = value*(f**2) if squared else value*f
-        print('{} {} -> {} {} '.format( value, from_unit, result, to_unit ) )
+        #print('{} {} -> {} {} '.format( value, from_unit, result, to_unit ) )
         return result
 
     def convert_to_nm( self, value, unit, squared=False):
@@ -56,19 +58,24 @@ class unit:
         """
 
     def make_length_readable( self, value, unit, decimal = 0 ):
-        pos = 0
+        pos = -1
         f = 1
+        #print('make_length_readable', value, unit)
         if unit in self.unitArray:
             if unit != 'nm': value = self.convert_to_nm(value, unit)
             for factor in self.unitFactorArray:
-                if value*(10**decimal) > factor:
+                if value*10 > factor:
                     f = factor
                     pos += 1
+                    #print(pos, value*10, factor)
                 else:
-                    break
+                    break#print('-', pos, value*10, factor)
+                #else:
+                #    break
         else:
             print( 'The unit {} is not valid'.format(unit) )
-
+        #*(10**decimal)
+        # print('make_length_readable',f, value/f, self.unitArray[pos])
         return value/f, self.unitArray[pos]
 
     def setImageJScaling( self, scaling, verbose=False ):
@@ -175,7 +182,6 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
                         if (len(setting) > 1 ):
                             IJSettingsArray[setting[0]] = setting[1]
                 if ( 'ImageJ' in IJSettingsArray ):
-                    print(IJSettingsArray['ImageJ'])
                     if ( 'FA.FIB.Toolbox' in IJSettingsArray['ImageJ'] ):
                         if verbose: print( '  Image edited using F.A. Finger Institute Toolbox' )
                         scaling['editor'] = 'F.A. FIB Toolbox'
@@ -253,11 +259,78 @@ def get_eds_image_scaling( img, verbose=False ):
 def autodetectScaling( filename, workingDirectory, verbose = False ):
     scaling = getImageJScaling( filename, workingDirectory, verbose=verbose )
     if scaling['editor'] == None:
-        print('trying to detect FEI scaling')
+        if verbose: print('trying to detect FEI scaling')
         scaling = getFEIScaling( filename, workingDirectory, save_scaled_image=False, verbose=verbose )
     if scaling['editor'] == None:
         print( '{} was not saved using ImageJ or a SEM by FEI / thermoScientific'.format(filename) )
     return scaling
+
+
+def getContentHeightFromMetaData( file_path, verbose=False ):
+    contentHeight = 0
+    with open(file_path, 'rb', 0) as file, \
+        mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as s:
+        ## get original image height
+        if s.find(b'ResolutionY') != -1:
+            file.seek(s.find(b'ResolutionY'))
+            tempLine = str( file.readline() ).split("=",1)[1]
+            contentHeight = float( tempLine.split("\\",1)[0] )
+    if ( contentHeight > 0 ):
+        if verbose: print( "  detected content height: {} px".format(contentHeight) )# + str( height ) + '|' + str(contentHeight))
+    else:
+        if verbose: print( "  content height not detected" )
+    return contentHeight
+
+def save_scalebar_image( pil_img, path, scaling ):
+    UC = unit()
+    w, h = pil_img.size
+    tiffinfo = UC.setImageJScaling( scaling )
+
+    scale_width_dict = {800:500.0, 400:250.0, 200:100.0, 80:50.0, 40:25.0, 20:10.0, 8:5.0, 4:2.5}
+    readable_val, readable_unit = UC.make_length_readable( w * scaling['x']/10, scaling['unit'])
+    if readable_unit != scaling['unit']:
+        scaling['x'] = UC.convert_from_to_unit( scaling['x'], scaling['unit'], readable_unit )
+        scaling['y'] = UC.convert_from_to_unit( scaling['y'], scaling['unit'], readable_unit )
+        scaling['unit'] = readable_unit
+
+    scaledImageWidth = w * scaling['x']
+    scaledImageHeight = h * scaling['y']
+
+    scaleWidth = 1
+    for i in scale_width_dict:
+        if scaledImageWidth > i:
+            scaleWidth = scale_width_dict[i]
+            break
+        #else:
+            #<break
+
+    scaleHeight = round( 0.004 * h )
+    scaleHeight = scaleHeight if scaleHeight > 1 else 1
+    fontSize = 6 * scaleHeight
+    pad_right = round(0.015 * w)
+    pad_bottom = round(0.01 * w)+2*scaleHeight+fontSize
+
+    draw = ImageDraw.Draw(pil_img)
+    line_from = (round(w-(scaleWidth/scaling['x'] + pad_right)), h-pad_bottom)
+    line_to   = (w-pad_right, h-pad_bottom)
+
+    #print(w, h, scaledImageWidth, scaledImageHeight)
+    # print('scalebarWidth:',scaleWidth, readable_unit, ', ImageWidth:', scaledImageWidth, readable_unit, [line_from, line_to])
+    draw.line([line_from, line_to], fill=255, width=scaleHeight)
+    font_path = home_dir + os.sep + "LinotypeSyntaxCom-Regular.ttf"
+    if not os.path.isfile(font_path):
+        font_path = home_dir + os.sep + "RobotoMono-VariableFont_wght.ttf"
+    fnt = ImageFont.truetype(font_path, fontSize)
+    print((round(w-(scaleWidth/scaling['x']/2 + pad_right)), pad_bottom+10))
+    print("{:.1f} {}".format(scaleWidth, readable_unit))
+    # draw text, half opacity
+    scaling_text = "{:.1f} {}".format(scaleWidth, readable_unit)
+    tw, _ = draw.textsize(scaling_text, font=fnt)
+    print(scaleWidth/2, tw/2)
+    draw.text((round(w-((scaleWidth/scaling['x'])/2 + pad_right)-tw/2), h-pad_bottom+scaleHeight*2), scaling_text, font=fnt, fill=255)
+
+    pil_img.save(path, "tiff", compression='tiff_lzw', tiffinfo = tiffinfo)
+
 
 ### actual program start
 if __name__ == '__main__':
@@ -269,7 +342,6 @@ if __name__ == '__main__':
     programInfo()
 
     #### directory definitions
-    home_dir = os.path.dirname(os.path.realpath(__file__))
     showDebuggingOutput = False
 
     if ( showDebuggingOutput ) : print( "I am living in '{}'".format(home_dir) )
@@ -296,6 +368,9 @@ if __name__ == '__main__':
     standard_unit = input()
     if standard_unit == '': standard_unit = 'nm'
 
+    print( "Save image with simplified scalebar [y/N]", end=": " )
+    save_with_new_scalebar = ( input().upper() in ['Y', 'J'] )
+
     """
     print( 'Set the scaling of the image. Input example: 2.123456' )
     print( 'Scaling [' + unit + '/px]', end=": " )
@@ -320,21 +395,32 @@ if __name__ == '__main__':
         for file in os.listdir( settings["workingDirectory"] ):
             if ( file.endswith(".tif") or file.endswith(".TIF")):
                 filename = os.fsdecode(file)
+                file_path = settings["workingDirectory"] + os.sep + filename
                 position = position + 1
                 print( " Processing " + filename + " (" + str(position) + " / " + str(fileCount) + ") :" )
-                scale = autodetectScaling( file, settings["workingDirectory"], True )
+                scale = autodetectScaling( file, settings["workingDirectory"], False )
                 if scale['editor'] != None:
-                    with Image.open( settings["workingDirectory"] + os.sep + filename ) as img:
+                    with Image.open( file_path ) as img:
+                        width, height = img.size
                         data = list(img.getdata())
                         metafree_img = Image.new(img.mode, img.size)
                         metafree_img.putdata(data)
                         metafree_img.save( settings["workingDirectory"] + os.sep + output_folder_name + file_prefix + filename, compression='tiff_lzw', tiffinfo = UC.setImageJScaling( scale ) )#, resolution=UC.convert_from_to_unit(scale['x'],scale['unit'], 'cm'), resolution_unit=3 )#
-                        successfull_files += 1
+                        if save_with_new_scalebar:
+                            contentHeight = getContentHeightFromMetaData( file_path, verbose=False )
+                            if contentHeight > 0:
+                                metafree_img = metafree_img.crop((0, 0, width, contentHeight))
+                            save_scalebar_image(metafree_img, path=settings["workingDirectory"] + os.sep + output_folder_name + 'nsb_' + filename ,scaling=scale)
+                            successfull_files += 1
+
                     set_scale = autodetectScaling( file_prefix + file, settings["workingDirectory"] + os.sep + output_folder_name )
-                    if set_scale['x'] == scale['x']:
-                        print( "    {:.2f} {}".format(scale['x'], standard_unit) )
+
+                    if (    set_scale['x']*1.01 > UC.convert_from_to_unit( scale['x'], scale['unit'], set_scale['unit'])
+                        and set_scale['x']      < UC.convert_from_to_unit( scale['x'], scale['unit'], set_scale['unit'])*1.01):
+                        print( "    {:.2f} {}".format(scale['x'], scale['unit']) )
                     else:
-                        print( "    scale is {:.2f} {}, but saving failed!" )
+                        print( "    scale is {:.2f} {}, but saving failed! (!= {:.2f} {})".format(scale['x'], standard_unit, set_scale['x'], set_scale['unit']) )
+
                 else:
                     print( "    no scaling information found in the image" )
 

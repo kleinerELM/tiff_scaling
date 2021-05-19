@@ -27,3 +27,8 @@ The function `setImageJScaling()` expect an array as follows:
 
 
 The scripts are intended to be used as libaries for other scripts, but can also be used standalone.
+
+
+# Info
+This script uses Roboto Mono by Google under Apache Licence 2.0:
+https://fonts.google.com/specimen/Roboto+Mono?category=Monospace#standard-styles
