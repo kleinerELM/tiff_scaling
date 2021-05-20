@@ -7,8 +7,8 @@ home_dir = os.path.dirname(os.path.realpath(__file__))
 
 def programInfo():
     print("#########################################################")
-    print("# A Script to extract the scaling in TIFFs edited by    #")
-    print("# ImageJ                                                #")
+    print("# A Script to extract the scaling in TIFFs created by   #")
+    print("# FEI SEMs, Oxford Aztec EDS images or ImageJ           #")
     print("#                                                       #")
     print("# © 2021 Florian Kleiner                                #")
     print("#   Bauhaus-Universität Weimar                          #")
@@ -16,6 +16,53 @@ def programInfo():
     print("#                                                       #")
     print("#########################################################")
     print()
+
+
+# Initial function to load the settings
+def getBaseSettings():
+    settings = {
+        "showDebuggingOutput"    : False,
+        "home_dir"               : os.path.dirname(os.path.realpath(__file__)),
+        "workingDirectory"       : "",
+        "actionType"             : "d",  # directory = d or file = f
+        "outputDirectory"        : "extracted_scaling",
+        "save_with_new_scalebar" : True
+    }
+    return settings
+
+#### process given command line arguments
+def processArguments():
+    settings = getBaseSettings()
+    argv = sys.argv[1:]
+    usage = sys.argv[0] + " [-h] [-o] [-f] [-s] [-d]"
+    try:
+        opts, args = getopt.getopt(argv,"hosd",[])
+    except getopt.GetoptError:
+        print( usage )
+    for opt, arg in opts:
+        if opt == '-h':
+            print( 'usage: ' + usage )
+            print( '-h,                  : show this help' )
+            print( '-o,                  : setting output directory name [{}]'.format(settings["outputDirectory"]) )
+            print( '-f:,                  : process only a single file' )
+            print( '-s                   : do not save images with a simplyfied scalebar' )
+            print( '-d                   : show debug output' )
+            print( '' )
+            sys.exit()
+        elif opt in ("-o"):
+            settings["outputDirectory"] = arg
+            print( 'Changed output directory to {}'.format(settings["outputDirectory"]) )
+        elif opt in ("-s"):
+            settings["save_with_new_scalebar"] = True
+            print( 'Won\'t save images with a simplyfied scalebar.' )
+        elif opt in ("-f"):
+            settings["actionType"] = 'f'
+            print( 'Single file processing.' )
+        elif opt in ("-d"):
+            print( 'Show debugging output.' )
+            settings["showDebuggingOutput"] = True
+    print( '' )
+    return settings
 
 class unit:
     unitArray          = [  'nm',  'µm',  'mm',  'cm',  'dm',   'm' ]
@@ -224,7 +271,7 @@ def autodetectScaling( filename, workingDirectory, verbose = False ):
         if verbose: print('trying to detect FEI scaling')
         scaling = getFEIScaling( filename, workingDirectory, save_scaled_image=False, verbose=verbose )
     if scaling['editor'] == None:
-        print( '{} was not saved using ImageJ or a SEM by FEI / thermoScientific'.format(filename) )
+        if verbose: print( '{} was not saved using ImageJ or a SEM by FEI / thermoScientific'.format(filename) )
     return scaling
 
 
@@ -273,9 +320,11 @@ def save_scalebar_image( pil_img, path, scaling ):
 
     draw = ImageDraw.Draw(pil_img)
 
+    fill_color = 255 if pil_img.mode == 'L' else (255,255,255)
+
     line_from = (round(w-(scaleWidth/scaling['x'] + pad_right)), h-pad_bottom)
     line_to   = (w-pad_right, h-pad_bottom)
-    draw.line([line_from, line_to], fill=255, width=scaleHeight)
+    draw.line([line_from, line_to], fill=fill_color, width=scaleHeight)
 
     font_path = home_dir + os.sep + "LinotypeSyntaxCom-Regular.ttf"
     if not os.path.isfile(font_path):
@@ -285,14 +334,14 @@ def save_scalebar_image( pil_img, path, scaling ):
     scaling_text = "{:.1f} {}".format(scaleWidth, readable_unit)
     tw, _ = draw.textsize(scaling_text, font=fnt)
 
-    draw.text((round(w-((scaleWidth/scaling['x'])/2 + pad_right)-tw/2), h-pad_bottom+scaleHeight*2), scaling_text, font=fnt, fill=255)
+    draw.text((round(w-((scaleWidth/scaling['x'])/2 + pad_right)-tw/2), h-pad_bottom+scaleHeight*2), scaling_text, font=fnt, fill=fill_color)
 
     pil_img.save(path, "tiff", compression='tiff_deflate', tiffinfo = tiffinfo)
 
 # open a grayscale FEI-Image without the standard scalebar
-def get_image_without_scalebar(base_dir, filename, to_opencv=False):
+def get_image_without_scalebar(base_dir, filename, to_opencv=False, verbose=False ):
     file_path = base_dir + os.sep + filename
-    scaling = autodetectScaling( filename, base_dir )
+    scaling = autodetectScaling( filename, base_dir, verbose )
     contentHeight = getContentHeightFromMetaData( file_path, verbose=False )
     with Image.open( file_path ) as img:
         width, height = img.size
@@ -307,7 +356,7 @@ def get_image_without_scalebar(base_dir, filename, to_opencv=False):
             metafree_img = numpy.array(metafree_img)
     return metafree_img, scaling
 
-def save_scaling_in_image( base_dir, filename, save_with_new_scalebar, output_folder_name ):
+def save_scaling_in_image( base_dir, filename, save_with_new_scalebar, output_folder_name, verbose=True ):
     result = False
 
     scaling = autodetectScaling( filename, base_dir )
@@ -332,14 +381,15 @@ def save_scaling_in_image( base_dir, filename, save_with_new_scalebar, output_fo
             metafree_img.save( of + filename, compression='tiff_deflate', tiffinfo = tiffinfo )#, resolution=UC.convert_from_to_unit(scale['x'],scale['unit'], 'cm'), resolution_unit=3 )#
 
             # check if scalebar is detected without an error
-            set_scaling = autodetectScaling( file_prefix + filename, of )
+            set_scaling = autodetectScaling( filename, of )
 
+            UC = unit()
             if (    set_scaling['x']*1.01 > UC.convert_from_to_unit( scaling['x'], scaling['unit'], set_scaling['unit'])
                 and set_scaling['x']      < UC.convert_from_to_unit( scaling['x'], scaling['unit'], set_scaling['unit'])*1.01):
-                print( "    {:.2f} {}".format(scaling['x'], scaling['unit']) )
+                if verbose: print( "    {:.2f} {}/px".format(scaling['x'], scaling['unit']) )
                 result = True
-            else:
-                print( "    saving the saved image with the new scaling has major deviations. Detected: {:.2f} {}, Saved: {:.2f} {})".format(scaling['x'], scaling['unit'], set_scaling['x'], set_scaling['unit']) )
+            elif verbose:
+                print( "    Saving '{}' with the new scaling caused major deviations. Detected: {:.2f} {}/px, Saved: {:.2f} {}/px)".format(filename, scaling['x'], scaling['unit'], set_scaling['x'], set_scaling['unit']) )
 
             # cut old scalebar and add simplified scalebar for publications
             if save_with_new_scalebar:
@@ -356,15 +406,22 @@ def save_scaling_in_image( base_dir, filename, save_with_new_scalebar, output_fo
 
                 save_scalebar_image(metafree_img, path=of_scalebar + filename, scaling=scaling)
     else:
-        print( "    no scaling information found in the image" )
+        if verbose: print( "    no scaling information found in '{}'".format(filename) )
 
-    return result
+    return [result, scaling, filename]
 
+# helper function for the multi file processing
+result_list = {}
+def log_result(result):
+    global result_list
+    if result[0]:
+        result_list[result[2]] = result[1]
 
 ### actual program start
 if __name__ == '__main__':
     import tkinter as tk
     from tkinter import filedialog
+    import multiprocessing
 
     #remove root windows
     root = tk.Tk()
@@ -376,14 +433,12 @@ if __name__ == '__main__':
     #### directory definitions
     showDebuggingOutput = False
 
-    if ( showDebuggingOutput ) : print( "I am living in '{}'".format(home_dir) )
-
-    settings = {}
+    settings = processArguments()
 
     ### actual program start
 
     UC = unit()
-
+    """
     print( "Extract the scale for a single file (f) or all files in a directory (d), [f]", end=": " )
     actionType = input()
 
@@ -398,41 +453,65 @@ if __name__ == '__main__':
 
     print( "Save image with simplified scalebar [y/N]", end=": " )
     save_with_new_scalebar = ( input().upper() in ['Y', 'J'] )
-
-    if ( actionType == 'd' ):
+    """
+    settings['outputDirectory'] += os.sep
+    if ( settings['actionType']  == 'd' ):
         print( "Please select a working directory", end="\r" )
         settings["workingDirectory"] = filedialog.askdirectory(title='Please select the directory containing the images')
 
+        coreCount = multiprocessing.cpu_count()
+        processCount = (coreCount - 1) if coreCount > 1 else 1
 
-        fileCount = 0
-        position = 0
+        if ( settings['showDebuggingOutput'] ) :
+            print( 'Found {} CPU cores. Would use max. {} processes when not in debuggging mode.'.format(coreCount, processCount) )
+            print( "I am living in '{}'".format( settings["home_dir"] ) )
+            print( "Selected working directory: {}".format( settings["workingDirectory"] ), end='\n\n' )
+
+        fileList = []
+        for filename in os.listdir( settings["workingDirectory"] ):
+            if ( filename.endswith(".tif") or filename.endswith(".TIF")):
+                fileList.append( filename )
+
         successfull_files = 0
-        for filename in os.listdir( settings["workingDirectory"] ):
-            if ( filename.endswith(".tif") or filename.endswith(".TIF")):
-                fileCount += 1
-        for filename in os.listdir( settings["workingDirectory"] ):
-            if ( filename.endswith(".tif") or filename.endswith(".TIF")):
-                #filename = os.fsdecode(file)
-                file_path = settings["workingDirectory"] + os.sep + filename
-                position = position + 1
-                print( " Processing {} ({} / {}) :".format(filename, position, fileCount) )
+        if ( len(fileList) > 0 ):
+            pool = multiprocessing.Pool(processCount)
+            for position, filename in enumerate(fileList):
+                if ( filename.endswith(".tif") or filename.endswith(".TIF")):
+                    file_path = settings["workingDirectory"] + os.sep + filename
+                    print( " processing '{}' ({} / {})".format(filename, position+1, len(fileList)) )
+                    if settings['showDebuggingOutput']:
+                        save_scaling_in_image(  settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'] )
+                        successfull_files += 1
+                    else:
+                        pool.apply_async(save_scaling_in_image, args=(  settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'], False ), callback = log_result)
 
-                if save_scaling_in_image( settings["workingDirectory"], filename, save_with_new_scalebar, output_folder_name ): successfull_files += 1
+            pool.close()
+            pool.join()
+            if not  settings['showDebuggingOutput']:
+                print('-'*20)
+                for f in result_list:
+                    print(" ./{}: {:.2f} {}/px".format(f, result_list[f]['x'], result_list[f]['unit']))
+                    fileList.remove(f)
+                if len(fileList) > 0:
+                    print()
+                    print(' found {} image(s) without known scale metadata'.format(len(fileList)))
+                    for f in fileList:
+                        print(" ./{}".format(f))
 
-                print('-'*50)
+                successfull_files = len(result_list)
+            print()
+            print( "Detected and set ImageJ scaling in {} of {} images files".format(successfull_files, len(fileList)+len(result_list) ) )
+        else:
+            print( 'No Tif file found!' )
 
-        print()
-        print( "Detected and set ImageJ scaling in {} of {} images files".format(successfull_files, position ) )
     else:
         settings["filepath"] = filedialog.askopenfilename(title='Please select the image',filetypes=[("Tiff images", "*.tif;*.tiff")])
         settings["workingDirectory"] = os.path.dirname( settings["filepath"] )
-        if ( output_folder_name != '' ):
-            if not os.path.exists(settings["workingDirectory"] + os.sep + output_folder_name):
-                os.makedirs(settings["workingDirectory"] + os.sep + output_folder_name)
         filename = os.path.basename(settings["filepath"])
-        print( " Processing {}:".format(filename) )
+        #print( " Processing {}:".format(filename) )
         scaling = autodetectScaling( filename, settings["workingDirectory"], False )
 
-        save_scaling_in_image( settings["workingDirectory"], filename, save_with_new_scalebar, output_folder_name )
+        save_scaling_in_image( settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'] )
 
+    print()
     print( "Script DONE!" )
