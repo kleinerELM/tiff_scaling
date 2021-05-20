@@ -21,13 +21,10 @@ Use the function `autodetect_scaling( 'file.tif', '/folder/')` to get a scaling 
 scaling = { 'x' : 1.337, 'y' : 1.337, 'unit' : 'nm', 'editor':'EDITORNAME'}
 ```
 
-# set_tiff_scaling.py (depricated!)
-Script to (manually) set the scaling of an image to be readable by ImageJ.
-The function `setImageJScaling()` expect an array as follows:
-
-
-The scripts are intended to be used as libaries for other scripts, but can also be used standalone.
-
+# install required packages
+```
+pip install -r requirements.txt
+```
 
 # Info
 This script uses Roboto Mono by Google under Apache Licence 2.0:
