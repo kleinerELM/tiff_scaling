@@ -1,7 +1,5 @@
 # requirements.
 tifffile
 numpy
-mmap
 pillow
-subprocess
-multiprocessing
+multiprocess
