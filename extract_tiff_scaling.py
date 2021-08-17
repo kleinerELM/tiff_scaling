@@ -318,9 +318,20 @@ def save_scalebar_image( pil_img, path, scaling ):
     pad_right = round(0.015 * w)
     pad_bottom = round(0.01 * w)+2*scaleHeight+fontSize
 
+    # convert 16 bit images to 8 bit images.
+    # the font was somehow not displayed in 16 bit
+    # Since the scalebar is mainly used for publications, which are displayed in 8-bit anyway, this seems to be an okay workaround...
+    if pil_img.mode == 'I;16':
+        pil_img = Image.fromarray((numpy.array(pil_img)/65535*255).astype(numpy.uint8))
+
     draw = ImageDraw.Draw(pil_img)
 
-    fill_color = 255 if pil_img.mode == 'L' else (255,255,255)
+    if pil_img.mode == 'L':
+        fill_color = 255
+    elif pil_img.mode == 'I;16':
+        fill_color = 0
+    else:
+        fill_color = (255,255,255)
 
     line_from = (round(w-(scaleWidth/scaling['x'] + pad_right)), h-pad_bottom)
     line_to   = (w-pad_right, h-pad_bottom)
@@ -335,7 +346,6 @@ def save_scalebar_image( pil_img, path, scaling ):
     tw, _ = draw.textsize(scaling_text, font=fnt)
 
     draw.text((round(w-((scaleWidth/scaling['x'])/2 + pad_right)-tw/2), h-pad_bottom+scaleHeight*2), scaling_text, font=fnt, fill=fill_color)
-
     pil_img.save(path, "tiff", compression='tiff_deflate', tiffinfo = tiffinfo)
 
 # open a grayscale FEI-Image without the standard scalebar
@@ -347,8 +357,12 @@ def get_image_without_scalebar(base_dir, filename, to_opencv=False, verbose=Fals
         width, height = img.size
         tiffinfo = setImageJScaling( scaling )
 
-        metafree_img = Image.new(img.mode, img.size)
-        metafree_img.putdata( list(img.getdata()) )
+        if img.mode in ['L', 'P', 'RGB', 'RGBA', 'CMYK']:
+            # somehow this does not work with 16 bit greyscale images...
+            metafree_img = Image.new(img.mode, img.size)
+            metafree_img.putdata( list(img.getdata()) )
+        else :
+            metafree_img = Image.fromarray(numpy.asarray(img))
         if contentHeight > 0:
             metafree_img = metafree_img.crop((0, 0, width, contentHeight))
 
@@ -376,9 +390,14 @@ def save_scaling_in_image( base_dir, filename, save_with_new_scalebar, output_fo
             tiffinfo = setImageJScaling( scaling )
 
             # create a new image to remove metadata
-            metafree_img = Image.new(img.mode, img.size)
-            metafree_img.putdata( list(img.getdata()) )
+            if img.mode in ['L', 'P', 'RGB', 'RGBA', 'CMYK']:
+                # somehow this does not work with 16 bit greyscale images...
+                metafree_img = Image.new(img.mode, img.size)
+                metafree_img.putdata( list(img.getdata()) )
+            else :
+                metafree_img = Image.fromarray(numpy.asarray(img))
             metafree_img.save( of + filename, compression='tiff_deflate', tiffinfo = tiffinfo )#, resolution=UC.convert_from_to_unit(scale['x'],scale['unit'], 'cm'), resolution_unit=3 )#
+
 
             # check if scalebar is detected without an error
             set_scaling = autodetectScaling( filename, of )
@@ -407,7 +426,7 @@ def save_scaling_in_image( base_dir, filename, save_with_new_scalebar, output_fo
                 save_scalebar_image(metafree_img, path=of_scalebar + filename, scaling=scaling)
     else:
         if verbose: print( "    no scaling information found in '{}'".format(filename) )
-
+    print([result, scaling, filename])
     return [result, scaling, filename]
 
 # helper function for the multi file processing
@@ -474,20 +493,22 @@ if __name__ == '__main__':
 
         successfull_files = 0
         if ( len(fileList) > 0 ):
-            pool = multiprocessing.Pool(processCount)
+            if not settings['showDebuggingOutput']:
+                pool = multiprocessing.Pool(processCount)
             for position, filename in enumerate(fileList):
                 if ( filename.endswith(".tif") or filename.endswith(".TIF")):
                     file_path = settings["workingDirectory"] + os.sep + filename
                     print( " processing '{}' ({} / {})".format(filename, position+1, len(fileList)) )
                     if settings['showDebuggingOutput']:
-                        save_scaling_in_image(  settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'] )
+                        result = save_scaling_in_image(  settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'] )
+                        log_result(result)
                         successfull_files += 1
                     else:
                         pool.apply_async(save_scaling_in_image, args=(  settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'], False ), callback = log_result)
 
-            pool.close()
-            pool.join()
-            if not  settings['showDebuggingOutput']:
+            if not settings['showDebuggingOutput']:
+                pool.close()
+                pool.join()
                 print('-'*20)
                 for f in result_list:
                     print(" ./{}: {:.2f} {}/px".format(f, result_list[f]['x'], result_list[f]['unit']))
