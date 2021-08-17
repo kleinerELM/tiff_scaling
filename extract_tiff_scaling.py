@@ -355,7 +355,7 @@ def get_image_without_scalebar(base_dir, filename, to_opencv=False, verbose=Fals
     contentHeight = getContentHeightFromMetaData( file_path, verbose=False )
     with Image.open( file_path ) as img:
         width, height = img.size
-        tiffinfo = setImageJScaling( scaling )
+        #tiffinfo = setImageJScaling( scaling )
 
         if img.mode in ['L', 'P', 'RGB', 'RGBA', 'CMYK']:
             # somehow this does not work with 16 bit greyscale images...
@@ -426,7 +426,7 @@ def save_scaling_in_image( base_dir, filename, save_with_new_scalebar, output_fo
                 save_scalebar_image(metafree_img, path=of_scalebar + filename, scaling=scaling)
     else:
         if verbose: print( "    no scaling information found in '{}'".format(filename) )
-    print([result, scaling, filename])
+
     return [result, scaling, filename]
 
 # helper function for the multi file processing
