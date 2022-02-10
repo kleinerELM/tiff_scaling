@@ -171,6 +171,7 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
             if verbose: print( 'tag[283]', img.tag[283] ) #y
             x_tag = img.tag[282][0]
             y_tag = img.tag[283][0]
+            #if verbose: print('image tags: ', x_tag, y_tag)
             scaling['x'] = int( x_tag[1] )/ int( x_tag[0] )
             scaling['y'] = int( y_tag[1] )/ int( y_tag[0] )
         if 270 in img.tag:
@@ -208,6 +209,7 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
                         scaling['editor'] = IJSettingsArray['ImageJ']
                 if ( 'unit' in IJSettingsArray ):
                     scaling['unit'] = IJSettingsArray['unit']
+                    if scaling['unit'] == "\\u00B5m": scaling['unit'] = 'µm'
                     # images < 1 nm/px were recognized falsely in previeous versions and no valid unit was assigned.
                     if not scaling['unit'] in UC.unitArray and scaling['x'] < 1 and scaling['x'] > 0 :
                         if verbose: print('scale given but unit {} seems wrong'.format(scaling['unit']))
@@ -273,7 +275,6 @@ def autodetectScaling( filename, workingDirectory, verbose = False ):
     if scaling['editor'] == None:
         if verbose: print( '{} was not saved using ImageJ or a SEM by FEI / thermoScientific'.format(filename) )
     return scaling
-
 
 def getContentHeightFromMetaData( file_path, verbose=False ):
     contentHeight = 0
@@ -347,6 +348,7 @@ def save_scalebar_image( pil_img, path, scaling ):
 
     draw.text((round(w-((scaleWidth/scaling['x'])/2 + pad_right)-tw/2), h-pad_bottom+scaleHeight*2), scaling_text, font=fnt, fill=fill_color)
     pil_img.save(path, "tiff", compression='tiff_deflate', tiffinfo = tiffinfo)
+    pil_img.save(path+'.jpg')
 
 # open a grayscale FEI-Image without the standard scalebar
 def get_image_without_scalebar(base_dir, filename, to_opencv=False, verbose=False ):
@@ -372,8 +374,7 @@ def get_image_without_scalebar(base_dir, filename, to_opencv=False, verbose=Fals
 
 def save_scaling_in_image( base_dir, filename, save_with_new_scalebar, output_folder_name, verbose=True ):
     result = False
-
-    scaling = autodetectScaling( filename, base_dir )
+    scaling = autodetectScaling( filename, base_dir, verbose )
     if scaling['editor'] != None:
         file_path = base_dir + os.sep + filename
 
@@ -504,7 +505,7 @@ if __name__ == '__main__':
                         log_result(result)
                         successfull_files += 1
                     else:
-                        pool.apply_async(save_scaling_in_image, args=(  settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'], False ), callback = log_result)
+                        pool.apply_async(save_scaling_in_image, args=(  settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'],  settings['showDebuggingOutput'] ), callback = log_result)
 
             if not settings['showDebuggingOutput']:
                 pool.close()
@@ -530,7 +531,7 @@ if __name__ == '__main__':
         settings["workingDirectory"] = os.path.dirname( settings["filepath"] )
         filename = os.path.basename(settings["filepath"])
         #print( " Processing {}:".format(filename) )
-        scaling = autodetectScaling( filename, settings["workingDirectory"], False )
+        scaling = autodetectScaling( filename, settings["workingDirectory"], settings['showDebuggingOutput'] )
 
         save_scaling_in_image( settings["workingDirectory"], filename, settings['save_with_new_scalebar'], settings['outputDirectory'] )
 
