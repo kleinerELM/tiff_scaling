@@ -260,8 +260,8 @@ def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=
                 else:
                     print( "   NavCam Image found. Set standard scaling.")
                 scaling['unit'] = 'mm'
-                scaling['x']    = 0.0539 # 472 px for 25mm
-                scaling['y']    = 0.0539
+                scaling['x']    = 0.053191 # 470 px for 25mm
+                scaling['y']    = 0.053191
 
             if save_scaled_image:
                 with Image.open( workingDirectory + os.sep + filename ) as img:
