@@ -247,12 +247,21 @@ def getFEIScaling( filename, workingDirectory, verbose=False, save_scaled_image=
 
         if data != None:
             scaling['editor'] = 'FEI-SEM'
-            scaling['x'] = float( data['Scan']['PixelWidth'] )
-            scaling['y'] = float( data['Scan']['PixelHeight'] )
+            if 'Scan' in data.keys():
+                scaling['x'] = float( data['Scan']['PixelWidth'] )
+                scaling['y'] = float( data['Scan']['PixelHeight'] )
 
-            factor, scaling['unit'] = UC.autodetect_unit(scaling['x'])
-            scaling['x'] *= factor
-            scaling['y'] *= factor
+                factor, scaling['unit'] = UC.autodetect_unit(scaling['x'])
+                scaling['x'] *= factor
+                scaling['y'] *= factor
+            else:
+                if not "navcam" in filename.lower():
+                    print( "   Image without scaling found. Assuming it is a NavCam image" )
+                else:
+                    print( "   NavCam Image found. Set standard scaling.")
+                scaling['unit'] = 'mm'
+                scaling['x']    = 0.0539 # 472 px for 25mm
+                scaling['y']    = 0.0539
 
             if save_scaled_image:
                 with Image.open( workingDirectory + os.sep + filename ) as img:
