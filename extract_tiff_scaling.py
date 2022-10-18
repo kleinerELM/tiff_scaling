@@ -10,7 +10,7 @@ def programInfo():
     print("# A Script to extract the scaling in TIFFs created by   #")
     print("# FEI SEMs, Oxford Aztec EDS images or ImageJ           #")
     print("#                                                       #")
-    print("# © 2021 Florian Kleiner                                #")
+    print("# © 2022 Florian Kleiner                                #")
     print("#   Bauhaus-Universität Weimar                          #")
     print("#   F. A. Finger-Institut für Baustoffkunde             #")
     print("#                                                       #")
@@ -92,18 +92,20 @@ class unit:
     def make_length_readable( self, value, unit, decimal = -1 ):
         pos = -1
         f = 1
+        abs_value = abs(value)
+        sign = -1 if value < 0 else 1
         if unit in self.unitArray:
-            if unit != 'nm': value = self.convert_to_nm(value, unit)
+            if unit != 'nm': abs_value = self.convert_to_nm(abs_value, unit)
             for factor in self.unitFactorArray:
-                if value*10 > factor:
+                if abs_value*10 > factor:
                     f = factor
                     pos += 1
                 else:
                     break
         else:
             print( 'The unit {} is not valid'.format(unit) )
-        return_value = value/f if decimal < 0 else round(value/f, decimal)
-        return return_value, self.unitArray[pos]
+        return_value = abs_value/f if decimal < 0 else round(abs_value/f, decimal)
+        return sign*return_value, self.unitArray[pos]
 
     def make_area_readable( self, value, unit, decimal = 0 ):
         unit = unit.replace('²','')
