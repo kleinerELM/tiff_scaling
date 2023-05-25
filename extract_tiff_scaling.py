@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import os, sys, getopt, tifffile, numpy, mmap
 from PIL import Image, ImageDraw, ImageFont
 Image.MAX_IMAGE_PIXELS = 1000000000 # prevent decompressionbomb warning for typical images
@@ -10,7 +13,7 @@ def programInfo():
     print("# A Script to extract the scaling in TIFFs created by   #")
     print("# FEI SEMs, Oxford Aztec EDS images or ImageJ           #")
     print("#                                                       #")
-    print("# © 2022 Florian Kleiner                                #")
+    print("# © 2023 Florian Kleiner                                #")
     print("#   Bauhaus-Universität Weimar                          #")
     print("#   F. A. Finger-Institut für Baustoffkunde             #")
     print("#                                                       #")
@@ -65,9 +68,12 @@ def processArguments():
     return settings
 
 class unit:
-    unitArray          = [  'nm',  'µm',  'mm',  'cm',  'dm',   'm' ]
-    unitFactorArray    = [     1, 10**3, 10**6, 10**7, 10**8, 10**9 ]
-    unitFactorArrayInv = [ 10**9, 10**6, 10**3, 10**2,    10,     1 ]
+    #unitArray          = [  'nm',  'µm',  'mm',  'cm',  'dm',   'm' ]
+    #unitFactorArray    = [     1, 10**3, 10**6, 10**7, 10**8, 10**9 ]
+    #unitFactorArrayInv = [ 10**9, 10**6, 10**3, 10**2,    10,     1 ]
+    unitArray          = [  'nm',  'µm',  'mm',  'cm',   'm' ]
+    unitFactorArray    = [     1, 10**3, 10**6, 10**7, 10**9 ]
+    unitFactorArrayInv = [ 10**9, 10**6, 10**3, 10**2,     1 ]
 
     def convert_from_to_unit( self, value, from_unit, to_unit, squared=False):
         result = value
@@ -159,9 +165,9 @@ def setImageJScaling( scaling, verbose=False ):
     info[282] = round(1/scaling['x'], 6)
     info[283] = round(1/scaling['y'], 6)
     if ( not 'editor' in scaling or scaling['editor'] == '' ):
-        scaling['editor'] = 'FA.FIB.Toolbox'#'F.A. FIB Toolbox'
+        scaling['editor'] = 'FA.FIB.Toolbox'
     if scaling['editor'] == None: scaling['editor'] = '-'
-    info[270] = "ImageJ=" + scaling['editor'] + "\nunit=" + scaling['unit']
+    info[270] = "ImageJ={}\nunit={}".format(scaling['editor'], scaling['unit'])
     return info
 
 def getImageJScaling( filename, workingDirectory, verbose = False ):
@@ -169,8 +175,8 @@ def getImageJScaling( filename, workingDirectory, verbose = False ):
     scaling = getEmptyScaling()
     with Image.open( workingDirectory + os.sep + filename ) as img:
         if ( 282 in img.tag ) and ( 283 in img.tag ):
-            if verbose: print( 'tag[282]', img.tag[282] ) #x
-            if verbose: print( 'tag[283]', img.tag[283] ) #y
+            if verbose: print( 'tag[282]: {}'.format(img.tag[282]) ) #x
+            if verbose: print( 'tag[283]: {}'.format(img.tag[283]) ) #y
             x_tag = img.tag[282][0]
             y_tag = img.tag[283][0]
             #if verbose: print('image tags: ', x_tag, y_tag)
@@ -302,7 +308,7 @@ def getContentHeightFromMetaData( file_path, verbose=False ):
         if verbose: print( "  content height not detected" )
     return contentHeight
 
-def save_scalebar_image( pil_img, path, scaling ):
+def save_scalebar_image( pil_img, path, scaling, as_tiff = False, as_jpg = True ):
     UC = unit()
     w, h = pil_img.size
     tiffinfo = setImageJScaling( scaling )
@@ -354,12 +360,12 @@ def save_scalebar_image( pil_img, path, scaling ):
         font_path = home_dir + os.sep + "RobotoMono-VariableFont_wght.ttf"
     fnt = ImageFont.truetype(font_path, fontSize)
 
-    scaling_text = "{:.1f} {}".format(scaleWidth, readable_unit)
+    scaling_text = "{:.0f} {}".format(scaleWidth, readable_unit)
     tw, _ = draw.textsize(scaling_text, font=fnt)
 
     draw.text((round(w-((scaleWidth/scaling['x'])/2 + pad_right)-tw/2), h-pad_bottom+scaleHeight*2), scaling_text, font=fnt, fill=fill_color)
-    pil_img.save(path, "tiff", compression='tiff_deflate', tiffinfo = tiffinfo)
-    pil_img.save(path+'.jpg')
+    if as_tiff: pil_img.save(path, "tiff", compression='tiff_deflate', tiffinfo = tiffinfo)
+    if as_jpg:  pil_img.save(path+'.jpg')
 
 # open a grayscale FEI-Image without the standard scalebar
 def get_image_without_scalebar(base_dir, filename, to_opencv=False, verbose=False ):
@@ -376,6 +382,7 @@ def get_image_without_scalebar(base_dir, filename, to_opencv=False, verbose=Fals
             metafree_img.putdata( list(img.getdata()) )
         else :
             metafree_img = Image.fromarray(numpy.asarray(img))
+
         if contentHeight > 0:
             metafree_img = metafree_img.crop((0, 0, width, contentHeight))
 
@@ -494,7 +501,7 @@ if __name__ == '__main__':
         processCount = (coreCount - 1) if coreCount > 1 else 1
 
         if ( settings['showDebuggingOutput'] ) :
-            print( 'Found {} CPU cores. Would use max. {} processes when not in debuggging mode.'.format(coreCount, processCount) )
+            print( 'Found {} CPU cores. Would use max. {} processes when not in debugging mode.'.format(coreCount, processCount) )
             print( "I am living in '{}'".format( settings["home_dir"] ) )
             print( "Selected working directory: {}".format( settings["workingDirectory"] ), end='\n\n' )
 
