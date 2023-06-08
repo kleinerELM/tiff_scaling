@@ -93,7 +93,7 @@ class unit:
         return result
 
     def convert_to_nm( self, value, unit, squared=False):
-        self.convert_from_to_unit( value, unit, 'nm', squared )
+        return self.convert_from_to_unit( value, unit, 'nm', squared )
 
     def make_length_readable( self, value, unit, decimal = -1 ):
         pos = -1
